@@ -34,7 +34,6 @@ MTX = MTX1.dot(MTX2)
 
 
 def rgb2lab(arr):
-    arr = arr + 1
     if arr.ndim != 3:
         raise ValueError("input array must have 3 dimensions")
 
@@ -42,22 +41,24 @@ def rgb2lab(arr):
     # L     |0.3811  0.5783  0.0402| |R|
     # M  =  |0.1967  0.7244  0.0782| |G|
     # S     |0.0241  0.1288  0.8444| |B|
-    lms = arr.dot(ConvertMatrix1)
+    lms = numpy.dot(arr, ConvertMatrix1)
 
-    LMS = numpy.log(lms)
+    LMS = numpy.log10(lms+1)
 
     # LMS =>  lab
     # l   |1/sqrt(3)  0  0| | 1  1  1| |L|
     # a = | 0 1/sqrt(6)  0| | 1  1 -2| |M|
     # b   | 0  0 1/sqrt(2)| | 1 -1  0| |S|
-    lab = LMS.dot(MTX)
+    lab = numpy.dot(LMS, MTX)
 
     return lab
 
 
 def lab2rgb(lab):
-    lms = numpy.dot(lab, numpy.transpose(MTX))
-    return numpy.dot(lms, ConvertMatrix2)
+    lms = numpy.dot(lab, MTX.T)
+    LMS = pow(10, lms) - 1
+    rgb = numpy.dot(LMS, ConvertMatrix2)
+    return rgb
 
 
 def colorTransfer(target, origin):
@@ -76,9 +77,9 @@ def colorTransfer(target, origin):
     """ subtract the mean from data"""
     scale = t_std / o_std
     ori = numpy.zeros(origin.shape)
-    ori[:, :, 0] = (origin[:, :, 0] - o_lmean) * scale + t_lmean
-    ori[:, :, 1] = (origin[:, :, 1] - o_amean) * scale + t_amean
-    ori[:, :, 2] = (origin[:, :, 2] - o_bmean) * scale + t_bmean
+    ori[:, :, 0] = (o_lab[:, :, 0] - o_lmean) * scale + t_lmean
+    ori[:, :, 1] = (o_lab[:, :, 1] - o_amean) * scale + t_amean
+    ori[:, :, 2] = (o_lab[:, :, 2] - o_bmean) * scale + t_bmean
     return lab2rgb(ori)
 
 if __name__ == "__main__":
@@ -88,6 +89,5 @@ if __name__ == "__main__":
     target_arr = numpy.asarray(target_im)
 
     trans_arr = colorTransfer(target_arr, source_arr)
-    print trans_arr
     img = Image.fromarray(trans_arr.astype(numpy.uint8))
     img.save(sys.argv[3])
